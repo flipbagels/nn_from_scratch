@@ -64,8 +64,17 @@ def cross_entropy(outputs, labels):
     The average cross entropy between the output values and the true labels
     """
 
-    probabilities = outputs[jnp.arange(outputs.shape[0]), labels]
-    return -jnp.mean(jnp.log(probabilities))
+    epsilon = 1e-12
+    outputs_clipped = jnp.clip(outputs, epsilon, 1 - epsilon)
+    labels_flat = labels.flatten()
+    
+    one_hot_labels = jax.nn.one_hot(labels_flat, num_classes=outputs_clipped.shape[1])
+    cross_entropy = -jnp.sum(one_hot_labels * jnp.log(outputs_clipped)) / outputs_clipped.shape[0]
+
+    # This version of cross entropy with an extra term doesn't seem to work properly and I'm yet to figure out why
+    # cross_entropy = -jnp.sum(one_hot_labels * jnp.log(outputs_clipped) + (1 - one_hot_labels) * jnp.log(1 - outputs_clipped)) / outputs_clipped.shape[0]
+
+    return cross_entropy
 
 
 @partial(jax.jit, static_argnames=['loss_func'])
@@ -210,7 +219,7 @@ def evaluate(params, inputs_test, labels_test, loss_func=cross_entropy):
     Parameters:
     params -- The parameters of the neural network.
     inputs_test -- The input data. (Test data)
-    labels_test -- The data labels. (Test data)
+    labels_test -- The data labels. (Test data).
     loss_func -- A function with which to calculate the loss with respect to.
 
     Return:
